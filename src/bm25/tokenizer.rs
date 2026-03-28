@@ -12,7 +12,7 @@ pub struct Tokenizer {
     stop_words: Option<std::collections::HashSet<String>>,
     min_length: usize,
     max_length: usize,
-    stem: bool,
+    pub stem: bool,
 }
 
 impl Tokenizer {
