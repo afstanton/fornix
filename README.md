@@ -207,7 +207,7 @@ cargo clippy --all-targets --all-features
 
 ## Versioning
 
-Current crate version: `0.2.0`.
+Current crate version: `0.3.1`.
 
 As the module surface is broad and evolving, pin a minor version in production environments and review changelogs before upgrading.
 
