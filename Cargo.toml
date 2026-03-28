@@ -1,9 +1,35 @@
 [package]
 name = "fornix"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Knowledge storage, retrieval, and graph infrastructure for cognitive systems"
 license = "MIT"
 repository = "https://github.com/afstanton/fornix"
 
+[features]
+default = []
+
+# Enable all modules at once (useful for development/testing)
+full = [
+    "store", "cache", "vector", "bm25", "hybrid",
+    "graph", "graphrag", "rag", "router", "diff", "tuner", "agent"
+]
+
+# Individual modules
+store    = []
+cache    = ["store"]
+vector   = ["store"]
+bm25     = ["store"]
+hybrid   = ["vector", "bm25"]
+graph    = ["store"]
+rag      = ["hybrid"]
+graphrag = ["graph", "rag", "hybrid"]
+router   = ["cache"]
+diff     = []
+tuner    = ["rag"]
+agent    = ["router"]
+
 [dependencies]
+serde_json = { version = "1", optional = true }
+
+[dev-dependencies]
