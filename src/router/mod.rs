@@ -1,40 +1,62 @@
-//! LLM provider routing: strategy-based model selection with metrics.
+//! LLM routing: model selection strategies, cost metrics, and RoRF.
 //!
-//! Routing strategies: regex, embedding threshold, random, round-robin.
+//! The router selects which LLM to call for a given query from a configured
+//! pool of models. Five strategies are provided:
+//!
+//! - [`strategies::RegexStrategy`] — rule-based routing by content patterns
+//! - [`strategies::RoundRobin`] — even load distribution (thread-safe)
+//! - [`strategies::WeightedRandom`] — probabilistic selection by weight
+//! - [`strategies::EmbeddingThreshold`] — complexity routing via embedding centroids
+//! - [`strategies::RoRFStrategy`] — learned routing via a trained Random Forest
+//!
+//! # RoRF
+//!
+//! RoRF trains a binary Random Forest classifier on `(embedding, label)` pairs
+//! where label 0 = model_a preferred and label 1 = model_b preferred. At
+//! inference time it embeds the query, runs it through the forest, and routes
+//! to model_a when `P(model_a) ≥ threshold`.
+//!
+//! ```rust,no_run
+//! use fornix::router::{
+//!     strategies::{RoRFStrategy, RoutingStrategy},
+//!     forest::ForestParams,
+//! };
+//!
+//! // Training data: embeddings + labels (0 = use strong model, 1 = use weak model)
+//! let features: Vec<Vec<f32>> = vec![vec![0.1], vec![0.9]];
+//! let labels: Vec<u8> = vec![0, 1];
+//!
+//! let router = RoRFStrategy::train(
+//!     &features,
+//!     &labels,
+//!     0.5,                // threshold
+//!     "claude-opus-4",    // model_a (strong)
+//!     "anthropic",
+//!     "claude-sonnet-4",  // model_b (weak)
+//!     "anthropic",
+//!     ForestParams::default(),
+//! ).unwrap();
+//!
+//! let decision = router.route("explain Rust lifetimes", Some(&[0.15]), &[]).unwrap();
+//! assert_eq!(decision.model, "claude-opus-4");
+//! ```
+//!
+//! # Cost metrics
+//!
+//! [`metrics::MetricsCalculator`] estimates per-request cost by tier (1–5)
+//! and [`metrics::MetricsCollector`] records decisions for aggregate reporting.
 
-/// Information about an LLM provider/model endpoint.
-pub struct ModelInfo {
-    pub provider: String,
-    pub model: String,
-    pub context_window: Option<usize>,
-    pub supports_streaming: bool,
-}
+pub mod error;
+pub mod forest;
+pub mod metrics;
+pub mod strategies;
+pub mod types;
 
-/// The outcome of a routing decision.
-pub struct RoutingDecision {
-    pub model: ModelInfo,
-    pub strategy: String,
-    pub score: Option<f32>,
-}
-
-/// Interface for LLM routing strategies.
-///
-/// Given a query and a set of candidate models, selects one.
-pub trait RoutingStrategy: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn name(&self) -> &'static str;
-    fn select(
-        &self,
-        query: &str,
-        candidates: &[ModelInfo],
-    ) -> Result<RoutingDecision, Self::Error>;
-}
-
-/// Interface for routing metrics collection and reporting.
-pub trait RoutingMetrics: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn record(&self, decision: &RoutingDecision, latency_ms: u64, success: bool) -> Result<(), Self::Error>;
-    fn summary(&self) -> Result<String, Self::Error>;
-}
+pub use error::{Error, Result};
+pub use forest::{train as train_forest, ForestParams, RandomForest};
+pub use metrics::{MetricsCalculator, MetricsCollector};
+pub use strategies::{
+    EmbeddingThreshold, EmbeddingThresholdConfig, RegexRule, RegexStrategy, RoRFStrategy,
+    RoundRobin, RoutingStrategy, WeightedModel, WeightedRandom,
+};
+pub use types::{model_tier, ModelInfo, ProviderConfig, RoutingDecision};
