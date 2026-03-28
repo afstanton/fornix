@@ -1,29 +1,40 @@
 //! BM25 full-text scoring and search.
 //!
-//! Adapters: synthetic (in-process), pg_bm25, pg_textsearch, paradedb.
+//! Implements the Okapi BM25 ranking algorithm with:
+//! - [`tokenizer::Tokenizer`] — text → token stream (lowercase, alphanumeric,
+//!   length filtering, stop words, optional suffix stemming)
+//! - [`scorer::Scorer`] — pure BM25 mathematics (k1 / b parameters)
+//! - [`adapters::MemoryBm25Adapter`] — full in-process inverted index
+//! - `adapters::PostgresBm25Adapter` — Postgres-backed (stubbed)
+//!
+//! # Quick start
+//!
+//! ```rust,no_run
+//! use fornix::bm25::{Bm25Config, Bm25Adapter, adapter::{IndexDocument, SearchOptions}};
+//! use fornix::bm25::adapters::MemoryBm25Adapter;
+//!
+//! # tokio_test::block_on(async {
+//! let adapter = MemoryBm25Adapter::connect(Bm25Config::default()).await.unwrap();
+//!
+//! adapter.index(IndexDocument::new("doc-1", "Rust is a systems programming language"), None).await.unwrap();
+//! adapter.index(IndexDocument::new("doc-2", "Python is great for scripting"), None).await.unwrap();
+//!
+//! let results = adapter.search("rust systems", None, SearchOptions::default()).await.unwrap();
+//! assert_eq!(results[0].id, "doc-1");
+//! # });
+//! ```
 
-/// A single BM25 search result.
-pub struct Bm25Result {
-    pub id: String,
-    pub score: f32,
-    pub content: Option<String>,
-}
+pub mod adapter;
+pub mod adapters;
+pub mod config;
+pub mod error;
+pub mod result;
+pub mod scorer;
+pub mod tokenizer;
 
-/// Core interface for BM25 search backends.
-///
-/// Unlike the vector adapter the BM25 adapter is query-scoped —
-/// it is constructed per-search with the query baked in.
-pub trait Bm25Adapter: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    /// Execute the search and return ranked results.
-    fn search(&self) -> Result<Vec<Bm25Result>, Self::Error>;
-}
-
-/// Factory interface for constructing a [`Bm25Adapter`] for a given query.
-pub trait Bm25AdapterFactory: Send + Sync {
-    type Adapter: Bm25Adapter;
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn build(&self, query: &str) -> Result<Self::Adapter, Self::Error>;
-}
+pub use adapter::{Bm25Adapter, IndexDocument, SearchOptions};
+pub use config::Bm25Config;
+pub use error::{Error, Result};
+pub use result::Bm25Result;
+pub use scorer::Scorer;
+pub use tokenizer::Tokenizer;
