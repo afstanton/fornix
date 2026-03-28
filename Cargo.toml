@@ -2,5 +2,8 @@
 name = "fornix"
 version = "0.1.0"
 edition = "2024"
+description = "Knowledge storage, retrieval, and graph infrastructure for cognitive systems"
+license = "MIT"
+repository = "https://github.com/afstanton/fornix"
 
 [dependencies]
