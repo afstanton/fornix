@@ -1,58 +1,38 @@
-//! GraphRAG: entity extraction, ingestion pipeline, community summarisation,
-//! federation, and graph-augmented retrieval.
+//! GraphRAG — knowledge graph-augmented retrieval.
 //!
-//! Depends on the `graph`, `hybrid`, and `rag` modules.
+//! Fuses structured knowledge graph data with vector and BM25 retrieval to
+//! produce richer, more coherent context for LLM calls.
+//!
+//! # Search modes
+//!
+//! - [`search::LocalSearch`] — entity-seeded neighbourhood traversal with
+//!   optional causal path expansion
+//! - [`search::GlobalSearch`] — community-summary ranking by lexical overlap
+//! - [`search::HybridSearch`] — combines both
+//!
+//! # Extraction
+//!
+//! LLM-backed extraction uses the [`types::EntityExtractor`] and
+//! [`types::RelationExtractor`] traits; callers provide implementations.
+//! Prompt construction happens inside the pipeline; only the `complete()`
+//! call is delegated to the injected [`types::LlmClient`].
+//!
+//! # Antifragility
+//!
+//! [`types::IngestObservation`] records each ingestion batch and computes
+//! an information-gain score used by the antifragility tracker.
 
-/// An extracted entity from raw text.
-pub struct ExtractedEntity {
-    pub name: String,
-    pub entity_type: String,
-    pub description: Option<String>,
-    pub confidence: f32,
-}
+pub mod config;
+pub mod error;
+pub mod schema;
+pub mod search;
+pub mod types;
 
-/// An extracted relation from raw text.
-pub struct ExtractedRelation {
-    pub from_name: String,
-    pub to_name: String,
-    pub relation_type: String,
-    pub description: Option<String>,
-    pub confidence: f32,
-}
-
-/// The result of an extraction pass over a text chunk.
-pub struct ExtractionResult {
-    pub entities: Vec<ExtractedEntity>,
-    pub relations: Vec<ExtractedRelation>,
-}
-
-/// Interface for entity and relation extraction from text.
-///
-/// Implementations may use an LLM, MITIE, or other NER backend.
-pub trait EntityRelationExtractor: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn extract(&self, text: &str) -> Result<ExtractionResult, Self::Error>;
-}
-
-/// Interface for GraphRAG ingestion pipelines.
-pub trait IngestionPipeline: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn ingest(&self, text: &str, source_id: Option<&str>) -> Result<(), Self::Error>;
-}
-
-/// Interface for a federated graph corpus (remote or local).
-pub trait FederationAdapter: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn search(&self, query: &str, limit: usize) -> Result<Vec<crate::rag::RagContext>, Self::Error>;
-}
-
-/// Interface for corpus-level analytics (coverage, drift, gap detection).
-pub trait CorpusAnalytics: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn coverage_score(&self) -> Result<f32, Self::Error>;
-    fn detect_gaps(&self, query: &str) -> Result<Vec<String>, Self::Error>;
-}
+pub use config::GraphRagConfig;
+pub use error::{Error, Result};
+pub use search::{GlobalSearch, GraphRagSearch, HybridSearch, LocalSearch};
+pub use types::{
+    EntityExtractor, ExtractedEntity, ExtractedRelation, ExtractionResult,
+    IngestObservation, InformationGainWeights, LlmClient, RelationExtractor,
+    SearchContext, SearchResult,
+};

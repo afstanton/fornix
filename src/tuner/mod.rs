@@ -1,35 +1,42 @@
-//! Prompt optimisation and tuning strategies.
+//! Prompt optimisation via automatic instruction and few-shot selection.
 //!
-//! Strategies: noop, MIPROv2, GEPA.
+//! Strategies:
+//! - [`Noop`] — pass-through, no optimisation
+//! - [`MiproV2`] — instruction proposal + random trials with minibatch scoring
+//! - [`Gepa`] — evolutionary population search with pareto-frontier selection
+//!
+//! All strategies take an injected `llm: &dyn Fn(&str) -> Result<String>` so
+//! the LLM provider is fully decoupled from the optimisation logic.
+//! Pass a closure backed by `rig`, `async-openai`, RubyLLM (via Magnus), or
+//! a mock for testing.
+//!
+//! # Quick start
+//!
+//! ```rust
+//! use fornix::tuner::{MiproV2, TuningStrategy, Sample, ExactMatchEvaluator};
+//!
+//! let dataset = vec![
+//!     Sample::new("What is 2+2?").with_output("4"),
+//!     Sample::new("Capital of France?").with_output("Paris"),
+//! ];
+//!
+//! // Stub LLM — replace with your actual provider
+//! let llm = |prompt: &str| -> fornix::tuner::Result<String> {
+//!     Ok(format!("improved: {}", &prompt[..20.min(prompt.len())]))
+//! };
+//!
+//! let result = MiproV2::default()
+//!     .tune("Answer the question:", &dataset, &ExactMatchEvaluator, &llm)
+//!     .unwrap();
+//!
+//! println!("Best prompt: {}", result.prompt);
+//! ```
 
-/// A prompt to be optimised.
-pub struct Prompt {
-    pub system: Option<String>,
-    pub user: String,
-}
+pub mod error;
+pub mod primitives;
+pub mod strategies;
+pub mod types;
 
-/// The result of a tuning pass.
-pub struct TuningResult {
-    pub optimised_prompt: Prompt,
-    pub score: f32,
-    pub iterations: usize,
-}
-
-/// Interface for evaluating prompt quality.
-pub trait TuningEvaluator: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn evaluate(&self, prompt: &Prompt, examples: &[(&str, &str)]) -> Result<f32, Self::Error>;
-}
-
-/// Interface for prompt optimisation strategies.
-pub trait TuningStrategy: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn name(&self) -> &'static str;
-    fn tune(
-        &self,
-        prompt: Prompt,
-        evaluator: &dyn TuningEvaluator<Error = Self::Error>,
-    ) -> Result<TuningResult, Self::Error>;
-}
+pub use error::{Error, Result};
+pub use strategies::{Gepa, GepaParams, MiproV2, MiproV2Params, Noop, TuningStrategy};
+pub use types::{Evaluator, ExactMatchEvaluator, Sample, SubstringEvaluator, TunerResult};
