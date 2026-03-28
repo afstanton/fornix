@@ -22,6 +22,7 @@ pub type Metadata = HashMap<String, serde_json::Value>;
 #[macro_export]
 macro_rules! metadata {
     ($($key:expr => $val:expr),* $(,)?) => {{
+        #[allow(unused_mut)]
         let mut m = $crate::common::metadata::Metadata::new();
         $(m.insert($key.to_string(), serde_json::json!($val));)*
         m
