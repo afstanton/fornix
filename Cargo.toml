@@ -60,5 +60,8 @@ dashmap = "6"
 # UUID generation for stable record identifiers
 uuid = { version = "1", features = ["v4"] }
 
+# Text diffing — word-level LCS diff, used by the diff module
+similar = "2"
+
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
