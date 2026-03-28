@@ -51,5 +51,14 @@ hex = "0.4"
 # Logging
 tracing = "0.1"
 
+# Graph algorithms — shortest path, connected components, DFS/BFS
+petgraph = "0.6"
+
+# Concurrent HashMap — used by memory graph/vector adapters
+dashmap = "6"
+
+# UUID generation for stable record identifiers
+uuid = { version = "1", features = ["v4"] }
+
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
