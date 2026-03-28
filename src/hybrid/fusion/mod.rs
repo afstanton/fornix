@@ -47,3 +47,9 @@ pub trait FusionStrategy: Send + Sync {
         vector_items: &[ScoredItem],
     ) -> HashMap<String, FusedScore>;
 }
+
+pub mod linear;
+pub mod rrf;
+
+pub use linear::Linear;
+pub use rrf::Rrf;

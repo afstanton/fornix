@@ -17,6 +17,7 @@ use crate::cache::{
     stats::CacheStats,
 };
 use crate::common::namespace::Namespace;
+use crate::store::config::AdapterConfig;
 use crate::store::health::{HealthReport, HealthStatus};
 
 /// A single stored entry in the memory cache.
@@ -76,14 +77,13 @@ impl MemoryInner {
     }
 
     fn purge_if_expired(&mut self, namespaced_key: &str) -> bool {
-        if let Some(entry) = self.store.get(namespaced_key) {
-            if entry.is_expired() {
+        if let Some(entry) = self.store.get(namespaced_key)
+            && entry.is_expired() {
                 let ns = entry.namespace.clone();
                 self.store.remove(namespaced_key);
                 self.stats.entry(ns).or_default().evictions += 1;
                 return true;
             }
-        }
         false
     }
 
@@ -176,7 +176,7 @@ impl CacheAdapter for MemoryCacheAdapter {
             return Ok(None);
         }
 
-        match inner.store.get(&namespaced_key) {
+        match inner.store.get(&namespaced_key).cloned() {
             Some(entry) => {
                 inner.stats.entry(ns).or_default().hits += 1;
                 Ok(Some(entry.value.clone()))

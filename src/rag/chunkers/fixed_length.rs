@@ -113,10 +113,11 @@ mod tests {
     fn overlap_causes_repeated_content() {
         let text = "abcdefghij"; // 10 chars
         let chunks = FixedLength::new(6, 2).chunk(text);
-        // step = 4: [0..6], [4..10]
-        assert_eq!(chunks.len(), 2);
+        // step = 4: [0..6], [4..10], [8..10]
+        assert_eq!(chunks.len(), 3);
         assert_eq!(&chunks[0].content, "abcdef");
         assert_eq!(&chunks[1].content, "efghij");
+        assert_eq!(&chunks[2].content, "ij");
     }
 
     #[test]

@@ -13,7 +13,7 @@
 //! use fornix::bm25::{Bm25Config, Bm25Adapter, adapter::{IndexDocument, SearchOptions}};
 //! use fornix::bm25::adapters::MemoryBm25Adapter;
 //!
-//! # tokio_test::block_on(async {
+//! # async fn _doc() {
 //! let adapter = MemoryBm25Adapter::connect(Bm25Config::default()).await.unwrap();
 //!
 //! adapter.index(IndexDocument::new("doc-1", "Rust is a systems programming language"), None).await.unwrap();
@@ -21,7 +21,7 @@
 //!
 //! let results = adapter.search("rust systems", None, SearchOptions::default()).await.unwrap();
 //! assert_eq!(results[0].id, "doc-1");
-//! # });
+//! # }
 //! ```
 
 pub mod adapter;

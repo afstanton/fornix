@@ -49,11 +49,10 @@ impl AdapterConfig for CacheConfig {
                 "cache default_namespace must be a named namespace",
             ));
         }
-        if let Some(max) = self.max_entries {
-            if max == 0 {
+        if let Some(max) = self.max_entries
+            && max == 0 {
                 return Err(StoreError::config("max_entries must be greater than zero if set"));
             }
-        }
         Ok(())
     }
 }

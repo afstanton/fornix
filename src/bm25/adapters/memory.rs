@@ -20,6 +20,7 @@ use crate::bm25::{
     tokenizer::Tokenizer,
 };
 use crate::common::namespace::Namespace;
+use crate::store::config::AdapterConfig;
 use crate::store::health::{HealthReport, HealthStatus};
 
 // ============================================================================
@@ -29,6 +30,8 @@ use crate::store::health::{HealthReport, HealthStatus};
 /// Term frequencies for a single document field.
 /// Maps token → occurrence count within that field.
 type TermFreqs = HashMap<String, u32>;
+/// Aggregated score tuple for a matched document.
+type DocumentScore = (f32, Vec<String>, HashMap<String, f32>);
 
 /// Per-document statistics for one field.
 #[derive(Debug, Clone)]
@@ -146,8 +149,8 @@ impl NamespaceIndex {
         query_tokens: &[String],
         fields: &[String],
         scorer: &Scorer,
-    ) -> HashMap<String, (f32, Vec<String>, HashMap<String, f32>)> {
-        let mut results: HashMap<String, (f32, Vec<String>, HashMap<String, f32>)> = HashMap::new();
+    ) -> HashMap<String, DocumentScore> {
+        let mut results: HashMap<String, DocumentScore> = HashMap::new();
 
         for (doc_id, doc_fields) in &self.documents {
             let mut total_score = 0.0_f32;
@@ -318,7 +321,7 @@ impl Bm25Adapter for MemoryBm25Adapter {
         let mut results: Vec<Bm25Result> = raw
             .into_iter()
             .filter(|(_, (score, _, _))| {
-                options.min_score.map_or(true, |min| *score >= min)
+                options.min_score.is_none_or(|min| *score >= min)
             })
             .map(|(id, (score, matched, field_scores))| {
                 Bm25Result::new(id, score, matched, field_scores)

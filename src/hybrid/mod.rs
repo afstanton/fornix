@@ -19,9 +19,11 @@
 //! ```rust,no_run
 //! use fornix::hybrid::{HybridSearch, HybridConfig, search::HybridSearchOptions};
 //! use fornix::bm25::{adapters::MemoryBm25Adapter, Bm25Config, adapter::IndexDocument};
+//! use fornix::bm25::Bm25Adapter;
 //! use fornix::vector::{adapters::MemoryVectorAdapter, VectorConfig};
+//! use fornix::vector::VectorAdapter;
 //!
-//! # tokio_test::block_on(async {
+//! # async fn _doc() {
 //! let bm25 = MemoryBm25Adapter::connect(Bm25Config::default()).await.unwrap();
 //! let vector = MemoryVectorAdapter::connect(VectorConfig::with_dimension(2)).await.unwrap();
 //!
@@ -33,7 +35,7 @@
 //!     .await
 //!     .unwrap();
 //! assert_eq!(results[0].id, "doc-1");
-//! # });
+//! # }
 //! ```
 
 pub mod confidence;

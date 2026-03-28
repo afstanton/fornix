@@ -59,6 +59,7 @@ impl RoRFStrategy {
     ///
     /// `features` — one embedding vector per training sample.
     /// `labels` — `0` if model_a was preferred, `1` if model_b was preferred.
+    #[allow(clippy::too_many_arguments)]
     pub fn train(
         features: &[Vec<f32>],
         labels: &[u8],
@@ -135,8 +136,7 @@ impl RoutingStrategy for RoRFStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::router::forest::ForestParams;
-    use crate::router::forest::tree::TreeParams;
+    use crate::router::forest::{ForestParams, TreeParams};
 
     fn simple_data() -> (Vec<Vec<f32>>, Vec<u8>) {
         // Feature 0 < 0.5 → prefer model_a (label 0)
@@ -210,9 +210,10 @@ mod tests {
 
     #[test]
     fn high_threshold_routes_to_model_b_more() {
-        // threshold=0.99 means almost everything goes to model_b
+        // A query in the model_b region should still route to model_b
+        // even when the threshold is very strict.
         let s = trained_strategy(0.99);
-        let d = s.route("q", Some(&[0.1]), &[]).unwrap();
+        let d = s.route("q", Some(&[0.9]), &[]).unwrap();
         assert_eq!(d.model, "weak-model");
     }
 

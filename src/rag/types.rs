@@ -1,6 +1,5 @@
 //! RAG domain types: Chunk, Context, RagResult.
 
-use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::common::metadata::Metadata;

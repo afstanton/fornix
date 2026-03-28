@@ -85,19 +85,17 @@ impl Policy {
     ) {
         self.release_write_paths(lease);
         if !success { return; }
-        if self.is_read_tool(call) {
-            if let Some(path) = self.path_arg(call) {
+        if self.is_read_tool(call)
+            && let Some(path) = self.path_arg(call) {
                 state.files_read.insert(path.display().to_string());
             }
-        }
-        if self.is_shell_tool(call) {
-            if let Some(cmd) = call.arg_str("command") {
+        if self.is_shell_tool(call)
+            && let Some(cmd) = call.arg_str("command") {
                 let cmd = cmd.trim().to_string();
                 if !cmd.is_empty() {
                     state.shell_commands.insert(cmd);
                 }
             }
-        }
     }
 
     // ─── private rules ───────────────────────────────────────────────────
@@ -168,7 +166,6 @@ impl Policy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     fn call(name: &str, args: &[(&str, &str)]) -> ToolCall {
         ToolCall {

@@ -40,7 +40,7 @@ pub struct MissedPattern {
 }
 
 /// Tracks queries that consistently fail to retrieve high-similarity results.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct QueryGapTracker {
     miss_threshold: f32,
     patterns: HashMap<String, PatternEntry>,
@@ -61,7 +61,7 @@ impl QueryGapTracker {
             return;
         }
 
-        let is_miss = max_similarity.map_or(true, |s| s < self.miss_threshold);
+        let is_miss = max_similarity.is_none_or(|s| s < self.miss_threshold);
         if !is_miss {
             return;
         }
@@ -101,19 +101,8 @@ impl QueryGapTracker {
     }
 
     fn normalise(&self, query: &str) -> String {
-        let tokens: Vec<&str> = query
-            .to_lowercase()
-            .split(|c: char| !c.is_ascii_alphanumeric())
-            .filter(|t| !t.is_empty() && !STOP_WORDS.contains(t))
-            .collect::<Vec<_>>()
-            // Need owned strings — re-collect from the original lowercased query
-            // Rebuild properly:
-            .into_iter()
-            .collect();
-
-        // Re-derive from the query to avoid borrow issues
-        let owned: Vec<String> = query
-            .to_lowercase()
+        let lower = query.to_lowercase();
+        let owned: Vec<String> = lower
             .split(|c: char| !c.is_ascii_alphanumeric())
             .filter(|t| !t.is_empty())
             .filter(|t| !STOP_WORDS.contains(t))

@@ -67,9 +67,9 @@ mod tests {
 
     #[test]
     fn float_produces_number_variant() {
-        let v = val::float(3.14);
+        let v = val::float(std::f64::consts::PI);
         // serde_json represents floats as Number; compare via json! macro
-        assert_eq!(v, serde_json::json!(3.14_f64));
+        assert_eq!(v, serde_json::json!(std::f64::consts::PI));
     }
 
     #[test]

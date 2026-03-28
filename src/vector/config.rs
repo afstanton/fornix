@@ -58,11 +58,10 @@ impl VectorConfig {
     /// Validate that a vector's dimension matches the configured dimension,
     /// if one has been set. Returns an error on mismatch.
     pub fn check_dimension(&self, actual: usize) -> StoreResult<()> {
-        if let Some(expected) = self.dimension {
-            if actual != expected {
+        if let Some(expected) = self.dimension
+            && actual != expected {
                 return Err(StoreError::DimensionMismatch { expected, actual });
             }
-        }
         Ok(())
     }
 }
@@ -78,11 +77,10 @@ impl AdapterConfig for VectorConfig {
                 "vector default_namespace must be a named namespace",
             ));
         }
-        if let Some(dim) = self.dimension {
-            if dim == 0 {
+        if let Some(dim) = self.dimension
+            && dim == 0 {
                 return Err(StoreError::config("dimension must be greater than zero if set"));
             }
-        }
         if self.table_name.is_empty() {
             return Err(StoreError::config("table_name must not be empty"));
         }

@@ -31,6 +31,7 @@ use crate::graph::{
         ExternalRef, Relation, RetargetStats,
     },
 };
+use crate::store::config::AdapterConfig;
 use crate::store::health::{HealthReport, HealthStatus};
 
 // ============================================================================
@@ -57,16 +58,14 @@ impl EntityRow {
         if !self.assertion_state.is_active() {
             return false;
         }
-        if let Some(from) = self.valid_from {
-            if at < from {
+        if let Some(from) = self.valid_from
+            && at < from {
                 return false;
             }
-        }
-        if let Some(to) = self.valid_to {
-            if at >= to {
+        if let Some(to) = self.valid_to
+            && at >= to {
                 return false;
             }
-        }
         true
     }
 
@@ -112,16 +111,14 @@ impl RelationRow {
         if !self.assertion_state.is_active() {
             return false;
         }
-        if let Some(from) = self.valid_from {
-            if at < from {
+        if let Some(from) = self.valid_from
+            && at < from {
                 return false;
             }
-        }
-        if let Some(to) = self.valid_to {
-            if at >= to {
+        if let Some(to) = self.valid_to
+            && at >= to {
                 return false;
             }
-        }
         true
     }
 
@@ -174,10 +171,6 @@ struct NamespaceStore {
 }
 
 impl NamespaceStore {
-    fn new() -> Self {
-        Self::default()
-    }
-
     fn active_entities(&self) -> Vec<EntityRow> {
         self.entities
             .iter()
@@ -246,10 +239,10 @@ impl MemoryGraphAdapter {
         ns.and_then(|n| n.as_deref()).unwrap_or("default")
     }
 
-    fn store(&self, ns: &str) -> dashmap::mapref::one::RefMut<String, NamespaceStore> {
+    fn store(&self, ns: &str) -> dashmap::mapref::one::RefMut<'_, String, NamespaceStore> {
         self.stores
             .entry(ns.to_string())
-            .or_insert_with(NamespaceStore::new)
+            .or_default()
     }
 
     fn next_entity_id(&self) -> u64 {
@@ -288,24 +281,20 @@ impl MemoryGraphAdapter {
         start_id: u64,
         options: &CausalOptions,
     ) -> Vec<CausalPath> {
-        let causal_set: std::collections::HashSet<&str> = options
-            .types
-            .as_deref()
-            .unwrap_or(ALL_CAUSAL_TYPES)
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
+        let causal_set: std::collections::HashSet<&str> = match options.types.as_deref() {
+            Some(types) => types.iter().map(|s| s.as_str()).collect(),
+            None => ALL_CAUSAL_TYPES.iter().copied().collect(),
+        };
 
         let moment = options.as_of;
 
         let Some(start_row) = ns_store.entities.get(&start_id) else {
             return Vec::new();
         };
-        if let Some(at) = moment {
-            if !start_row.active_at(at) {
+        if let Some(at) = moment
+            && !start_row.active_at(at) {
                 return Vec::new();
             }
-        }
 
         let mut paths = Vec::new();
         let mut stack: Vec<(Vec<u64>, Vec<u64>, std::collections::HashSet<u64>)> = vec![(
@@ -329,7 +318,7 @@ impl MemoryGraphAdapter {
                         r.from_id == current_id
                             && causal_set.contains(r.relation_type.as_str())
                             && r.strength_passes(options.min_causal_strength)
-                            && moment.map_or(true, |at| r.active_at(at))
+                            && moment.is_none_or(|at| r.active_at(at))
                             && !visited.contains(&r.to_id)
                     })
                     .map(|r| r.id)
@@ -371,13 +360,10 @@ impl MemoryGraphAdapter {
         start_id: u64,
         options: &CausalOptions,
     ) -> Vec<CausalPath> {
-        let causal_set: std::collections::HashSet<&str> = options
-            .types
-            .as_deref()
-            .unwrap_or(ALL_CAUSAL_TYPES)
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
+        let causal_set: std::collections::HashSet<&str> = match options.types.as_deref() {
+            Some(types) => types.iter().map(|s| s.as_str()).collect(),
+            None => ALL_CAUSAL_TYPES.iter().copied().collect(),
+        };
 
         let moment = options.as_of;
 
@@ -395,7 +381,7 @@ impl MemoryGraphAdapter {
                 r.to_id == start_id
                     && causal_set.contains(r.relation_type.as_str())
                     && r.strength_passes(options.min_causal_strength)
-                    && moment.map_or(true, |at| r.active_at(at))
+                    && moment.is_none_or(|at| r.active_at(at))
             })
             .take(options.max_branching_factor.unwrap_or(usize::MAX))
             .map(|r| r.id)
@@ -428,7 +414,7 @@ impl MemoryGraphAdapter {
                             r.to_id == first_id
                                 && causal_set.contains(r.relation_type.as_str())
                                 && r.strength_passes(options.min_causal_strength)
-                                && moment.map_or(true, |at| r.active_at(at))
+                                && moment.is_none_or(|at| r.active_at(at))
                                 && !visited.contains(&r.from_id)
                         })
                         .take(options.max_branching_factor.unwrap_or(usize::MAX))
@@ -628,21 +614,18 @@ impl GraphAdapter for MemoryGraphAdapter {
             .entities
             .iter()
             .filter(|r| {
-                if let Some(t) = &options.entity_type {
-                    if &r.entity_type != t {
+                if let Some(t) = &options.entity_type
+                    && &r.entity_type != t {
                         return false;
                     }
-                }
-                if let Some(q) = &options.query {
-                    if !r.name.to_lowercase().contains(&q.to_lowercase()) {
+                if let Some(q) = &options.query
+                    && !r.name.to_lowercase().contains(&q.to_lowercase()) {
                         return false;
                     }
-                }
-                if let Some(min) = options.min_confidence {
-                    if r.confidence.overall.map_or(false, |c| c < min) {
+                if let Some(min) = options.min_confidence
+                    && r.confidence.overall.is_some_and(|c| c < min) {
                         return false;
                     }
-                }
                 true
             })
             .map(|r| r.to_entity())
@@ -766,26 +749,22 @@ impl GraphAdapter for MemoryGraphAdapter {
                 if current_only && !r.is_active() {
                     return false;
                 }
-                if let Some(from) = options.from_id {
-                    if r.from_id != from {
+                if let Some(from) = options.from_id
+                    && r.from_id != from {
                         return false;
                     }
-                }
-                if let Some(to) = options.to_id {
-                    if r.to_id != to {
+                if let Some(to) = options.to_id
+                    && r.to_id != to {
                         return false;
                     }
-                }
-                if let Some(ref t) = options.relation_type {
-                    if &r.relation_type != t {
+                if let Some(ref t) = options.relation_type
+                    && &r.relation_type != t {
                         return false;
                     }
-                }
-                if let Some(min) = options.min_confidence {
-                    if r.confidence.overall.map_or(false, |c| c < min) {
+                if let Some(min) = options.min_confidence
+                    && r.confidence.overall.is_some_and(|c| c < min) {
                         return false;
                     }
-                }
                 true
             })
             .map(|r| r.to_relation())
@@ -833,7 +812,7 @@ impl GraphAdapter for MemoryGraphAdapter {
         }
         let ns = self.resolve_ns(namespace);
         let store_ref = self.stores.get(ns);
-        Ok(store_ref.map_or(false, |s| s.relations.remove(&id).is_some()))
+        Ok(store_ref.is_some_and(|s| s.relations.remove(&id).is_some()))
     }
 
     async fn upsert_relation_embedding(
@@ -942,12 +921,11 @@ impl GraphAdapter for MemoryGraphAdapter {
                         TraversalDirection::Both if r.to_id == id => Some(r.from_id),
                         _ => None,
                     };
-                    if let Some(nid) = neighbor {
-                        if !visited.contains(&nid) {
+                    if let Some(nid) = neighbor
+                        && !visited.contains(&nid) {
                             visited.insert(nid);
                             next_frontier.push(nid);
                         }
-                    }
                 }
             }
             frontier = next_frontier;
@@ -1023,8 +1001,8 @@ impl GraphAdapter for MemoryGraphAdapter {
                 break;
             }
             for (&pred_id, &pred_idx) in &node_map {
-                if let Some(&pred_cost) = costs.get(&pred_idx) {
-                    if pred_cost + 1 == current_cost {
+                if let Some(&pred_cost) = costs.get(&pred_idx)
+                    && pred_cost + 1 == current_cost {
                         // Check there's an edge pred→current
                         if graph.contains_edge(pred_idx, node_map[&current]) {
                             path_nodes.push(pred_id);
@@ -1032,7 +1010,6 @@ impl GraphAdapter for MemoryGraphAdapter {
                             continue 'outer;
                         }
                     }
-                }
             }
             break;
         }
@@ -1155,13 +1132,10 @@ impl GraphAdapter for MemoryGraphAdapter {
             return Ok(Vec::new());
         };
 
-        let causal_set: std::collections::HashSet<&str> = options
-            .types
-            .as_deref()
-            .unwrap_or(ALL_CAUSAL_TYPES)
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
+        let causal_set: std::collections::HashSet<&str> = match options.types.as_deref() {
+            Some(types) => types.iter().map(|s| s.as_str()).collect(),
+            None => ALL_CAUSAL_TYPES.iter().copied().collect(),
+        };
 
         if s.entities.get(&from_id).is_none() || s.entities.get(&to_id).is_none() {
             return Ok(Vec::new());
@@ -1240,8 +1214,8 @@ impl GraphAdapter for MemoryGraphAdapter {
             .iter()
             .filter(|r| {
                 r.active_at(at)
-                    && options.entity_type.as_ref().map_or(true, |t| &r.entity_type == t)
-                    && options.query.as_ref().map_or(true, |q| {
+                    && options.entity_type.as_ref().is_none_or(|t| &r.entity_type == t)
+                    && options.query.as_ref().is_none_or(|q| {
                         r.name.to_lowercase().contains(&q.to_lowercase())
                     })
             })
@@ -1273,9 +1247,9 @@ impl GraphAdapter for MemoryGraphAdapter {
             .iter()
             .filter(|r| {
                 r.active_at(at)
-                    && options.from_id.map_or(true, |id| r.from_id == id)
-                    && options.to_id.map_or(true, |id| r.to_id == id)
-                    && options.relation_type.as_ref().map_or(true, |t| &r.relation_type == t)
+                    && options.from_id.is_none_or(|id| r.from_id == id)
+                    && options.to_id.is_none_or(|id| r.to_id == id)
+                    && options.relation_type.as_ref().is_none_or(|t| &r.relation_type == t)
             })
             .map(|r| r.to_relation())
             .collect();
@@ -1344,9 +1318,10 @@ impl GraphAdapter for MemoryGraphAdapter {
         self.store(&ns).entities.insert(new_id, new_row);
 
         // Update old record's superseded_by
-        if let Some(mut old) = self.stores.get(&ns).and_then(|s| s.entities.get_mut(&old_id)) {
-            old.superseded_by = Some(new_id);
-        }
+        if let Some(store) = self.stores.get(&ns)
+            && let Some(mut old) = store.entities.get_mut(&old_id) {
+                old.superseded_by = Some(new_id);
+            }
 
         Ok(entity)
     }
@@ -1403,11 +1378,10 @@ impl GraphAdapter for MemoryGraphAdapter {
         let relation = new_row.to_relation();
         self.store(&ns).relations.insert(new_id, new_row);
 
-        if let Some(s) = self.stores.get(&ns) {
-            if let Some(mut old) = s.relations.get_mut(&old_id) {
+        if let Some(s) = self.stores.get(&ns)
+            && let Some(mut old) = s.relations.get_mut(&old_id) {
                 old.superseded_by = Some(new_id);
             }
-        }
 
         Ok(relation)
     }
@@ -1479,9 +1453,9 @@ impl GraphAdapter for MemoryGraphAdapter {
         let mut entries: Vec<ChangelogEntry> = log
             .iter()
             .filter(|e| {
-                record_type.map_or(true, |t| e.record_type == t)
-                    && since.map_or(true, |s| e.system_from >= s)
-                    && until.map_or(true, |u| e.system_from <= u)
+                record_type.is_none_or(|t| e.record_type == t)
+                    && since.is_none_or(|s| e.system_from >= s)
+                    && until.is_none_or(|u| e.system_from <= u)
             })
             .cloned()
             .collect();

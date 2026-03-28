@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use crate::store::{
     config::AdapterConfig,
     error::Result,
-    health::{HealthReport, HealthStatus},
+    health::HealthReport,
 };
 
 /// The base trait for all fornix storage adapters.
@@ -80,8 +80,9 @@ pub(crate) mod mock {
     };
 
     /// A trivial in-memory adapter that tracks connection state.
+    #[derive(Debug)]
     pub struct MockAdapter {
-        pub config: ConnectionConfig,
+        pub _config: ConnectionConfig,
         connected: bool,
         /// When `true`, `connect()` returns an error.
         pub fail_connect: bool,
@@ -92,7 +93,7 @@ pub(crate) mod mock {
     impl MockAdapter {
         pub fn new(url: &str) -> Self {
             Self {
-                config: ConnectionConfig::new(url),
+                _config: ConnectionConfig::new(url),
                 connected: false,
                 fail_connect: false,
                 fail_health: false,
@@ -148,7 +149,7 @@ pub(crate) mod mock {
         async fn build(&self, config: Self::Config) -> Result<Self::Adapter> {
             config.validate()?;
             let mut adapter = MockAdapter {
-                config,
+                _config: config,
                 connected: false,
                 fail_connect: false,
                 fail_health: false,
@@ -164,7 +165,7 @@ mod tests {
     use super::mock::{MockAdapter, MockAdapterFactory};
     use super::*;
     use crate::store::{
-        config::{AdapterConfig, ConnectionConfig},
+        config::ConnectionConfig,
         error::Error,
         health::HealthStatus,
     };

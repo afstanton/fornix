@@ -31,6 +31,7 @@ impl FilterPipeline {
     }
 
     /// Append a filter to the pipeline.
+    #[allow(clippy::should_implement_trait)]
     pub fn add(mut self, filter: impl OutputFilter + 'static) -> Self {
         self.filters.push(Box::new(filter));
         self
@@ -82,7 +83,7 @@ impl OutputFilter for MinScoreFilter {
     fn filter(&self, mut result: RagResult, _query: &str) -> Result<RagResult> {
         let threshold = self.threshold;
         result.contexts.retain(|c| {
-            c.effective_score().map_or(true, |s| s >= threshold)
+            c.effective_score().is_none_or(|s| s >= threshold)
         });
         result.token_count = result.contexts.iter().map(|c| crate::rag::tokenizer::count_tokens(&c.content)).sum();
         Ok(result)

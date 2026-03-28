@@ -17,6 +17,6 @@ pub mod gepa;
 pub mod mipro_v2;
 pub mod noop;
 
-pub use gepa::Gepa;
-pub use mipro_v2::MiproV2;
+pub use gepa::{Gepa, GepaParams};
+pub use mipro_v2::{MiproV2, MiproV2Params};
 pub use noop::Noop;

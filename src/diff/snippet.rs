@@ -99,6 +99,7 @@ pub fn focused_pair(
 /// `stitch_radius` controls how many neighbouring units on each side are
 /// included. `boundary_threshold_chars` controls the minimum common-prefix
 /// or -suffix length below which a change is considered "boundary sensitive."
+#[allow(clippy::too_many_arguments)]
 pub fn boundary_aware_stitched_pair(
     previous_units: &[Unit],
     current_units: &[Unit],
@@ -398,7 +399,7 @@ mod tests {
 
     #[test]
     fn suffix_len_partial() {
-        assert_eq!(common_suffix_len("prefix_abc", "other_abc", 0), 3);
+        assert_eq!(common_suffix_len("prefix_abc", "other_abc", 0), 4);
     }
 
     // --- is_boundary_sensitive_change ---
@@ -554,7 +555,7 @@ mod tests {
     #[test]
     fn empty_previous_returns_marked_current() {
         let (prev, curr) = focused_pair("", "hello world", 1000, 3);
-        assert!(prev.is_empty() || prev == "");
+        assert!(prev.is_empty() || prev.is_empty());
         assert!(!curr.is_empty());
     }
 

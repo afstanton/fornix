@@ -11,7 +11,7 @@ use std::time::Instant;
 
 use crate::agent::{
     error::{Error, Result},
-    policy::{Policy, PolicyState},
+    policy::Policy,
     token_budget::TokenBudget,
     traits::{MemoryCompactor, ModelClient, ToolRegistry},
     types::{CallConfig, Message, ModelTurn, SerializedToolCall, ToolCall, ToolResult},
@@ -107,7 +107,7 @@ impl<M: ModelClient, T: ToolRegistry> Engine<M, T> {
             }
 
             // Time limit check
-            if deadline.map_or(false, |d| Instant::now() > d) {
+            if deadline.is_some_and(|d| Instant::now() > d) {
                 return Err(Error::TimeLimitExceeded { steps: step - 1 });
             }
 
@@ -165,14 +165,12 @@ impl<M: ModelClient, T: ToolRegistry> Engine<M, T> {
             // Optional memory compaction
             if let Some(compactor) = &self.memory_compactor {
                 let window = 100_000usize; // caller provides real context window
-                if compactor.should_compact(cumulative_tokens, window) {
-                    if let Ok(result) = compactor.compact(&conversation, objective) {
-                        if result.messages != conversation {
+                if compactor.should_compact(cumulative_tokens, window)
+                    && let Ok(result) = compactor.compact(&conversation, objective)
+                        && result.messages != conversation {
                             emit(on_event, "[memory_compacted] older conversation summarized");
                             conversation = result.messages;
                         }
-                    }
-                }
             }
         }
 
@@ -203,11 +201,10 @@ impl<M: ModelClient, T: ToolRegistry> Engine<M, T> {
         let mut child_config = config.clone();
         if call.name == "execute" {
             child_config.model = cheap_model(&config.provider);
-        } else if let Some(m) = call.arg_str("model") {
-            if !m.trim().is_empty() {
+        } else if let Some(m) = call.arg_str("model")
+            && !m.trim().is_empty() {
                 child_config.model = m.to_string();
             }
-        }
 
         emit(on_event, &format!("[d{}] recurse {}", depth, call.name));
         match self.solve_recursive(&objective, depth + 1, &child_config, budget, on_event) {
@@ -234,7 +231,7 @@ fn serialize_tool_calls(turn: &ModelTurn) -> Vec<SerializedToolCall> {
     }).collect()
 }
 
-fn condense_tool_results(conversation: &mut Vec<Message>, cumulative_tokens: usize) {
+fn condense_tool_results(conversation: &mut [Message], cumulative_tokens: usize) {
     let threshold = 75_000usize; // 75% of a rough 100K window
     if cumulative_tokens < threshold { return; }
 
@@ -273,7 +270,6 @@ mod tests {
         traits::{ModelClient, ToolRegistry},
         types::{CallConfig, Message, ModelTurn, ToolCall, ToolDef, ToolResult},
     };
-    use std::collections::HashMap;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
 
@@ -338,10 +334,14 @@ mod tests {
     #[test]
     fn solve_emits_events() {
         let e = engine();
-        let mut events: Vec<String> = Vec::new();
-        e.solve("Test", &config(), Some(&|ev| events.push(ev.to_string()))).unwrap();
-        assert!(!events.is_empty());
-        assert!(events[0].contains("calling model"));
+        let events = std::sync::Mutex::new(Vec::<String>::new());
+        e.solve("Test", &config(), Some(&|ev| {
+            events.lock().unwrap().push(ev.to_string())
+        }))
+        .unwrap();
+        let locked = events.lock().unwrap();
+        assert!(!locked.is_empty());
+        assert!(locked[0].contains("calling model"));
     }
 
     #[test]
@@ -358,8 +358,8 @@ mod tests {
     #[test]
     fn condense_tool_results_preserves_recent() {
         let mut conv: Vec<Message> = (0..8).map(|i| {
-            let mut m = Message::tool_result(format!("id{}", i), "t", format!("content{}", i));
-            m
+
+            Message::tool_result(format!("id{}", i), "t", format!("content{}", i))
         }).collect();
         // Force condensation
         condense_tool_results(&mut conv, 100_000);

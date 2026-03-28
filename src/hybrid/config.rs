@@ -94,11 +94,10 @@ impl AdapterConfig for HybridConfig {
         if self.vector_candidates == 0 {
             return Err(StoreError::config("vector_candidates must be greater than zero"));
         }
-        if let Some(min) = self.min_similarity {
-            if !(0.0..=1.0).contains(&min) {
+        if let Some(min) = self.min_similarity
+            && !(0.0..=1.0).contains(&min) {
                 return Err(StoreError::config("min_similarity must be in [0.0, 1.0]"));
             }
-        }
         Ok(())
     }
 }

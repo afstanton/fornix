@@ -3,8 +3,6 @@
 //! `HybridSearch` ties together a BM25 adapter, a vector adapter, a fusion
 //! strategy, and confidence scoring into a single search call.
 
-use async_trait::async_trait;
-
 use crate::bm25::{
     adapter::{Bm25Adapter, SearchOptions as Bm25SearchOptions},
     result::Bm25Result,

@@ -10,7 +10,7 @@
 //! of complexity-signalling terms.
 
 use crate::router::{
-    error::{Error, Result},
+    error::Result,
     strategies::RoutingStrategy,
     types::{ModelInfo, RoutingDecision},
 };
@@ -125,16 +125,6 @@ impl EmbeddingThreshold {
     /// Combines four signals: token count, vocabulary richness,
     /// presence of long words, and matched complexity terms.
     fn heuristic_score(&self, content: &str) -> f32 {
-        let tokens: Vec<&str> = content
-            .to_lowercase()
-            .split(|c: char| !c.is_ascii_alphanumeric())
-            .filter(|t| !t.is_empty())
-            .collect::<Vec<_>>()
-            .into_iter()
-            // We need owned strings here — re-extract from the lowercased content
-            .collect();
-
-        // Re-derive for owned iteration
         let lower = content.to_lowercase();
         let toks: Vec<&str> = lower
             .split(|c: char| !c.is_ascii_alphanumeric())
@@ -144,7 +134,6 @@ impl EmbeddingThreshold {
         if toks.is_empty() {
             return 0.0;
         }
-        let _ = tokens; // suppress unused
 
         let count = toks.len() as f32;
         let unique: std::collections::HashSet<&str> = toks.iter().cloned().collect();
@@ -268,9 +257,9 @@ mod tests {
     #[test]
     fn high_threshold_always_routes_simple() {
         let d = strat(0.99)
-            .route("q", Some(&[1.0, 0.0]), &[])
+            .route("q", Some(&[0.0, 1.0]), &[])
             .unwrap();
-        // Score ~0.5 is below 0.99 → weak model
+        // A clearly simple embedding should route to the weak model.
         assert_eq!(d.model, "weak-model");
     }
 

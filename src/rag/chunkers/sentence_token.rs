@@ -100,7 +100,6 @@ impl Chunker for SentenceToken {
                 } else {
                     // Below min — emit overflow chunk and reset
                     current.push(sentence.clone());
-                    current_tokens += sentence.token_count;
                     let chunk = finalise(&current, index, true, self.overlap > 0);
                     chunks.push(chunk);
                     index = chunks.len();

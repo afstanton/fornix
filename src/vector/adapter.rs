@@ -59,6 +59,7 @@ impl SearchOptions {
 
 /// Options for a list operation.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct ListOptions {
     /// Optional metadata filter.
     pub filter: Option<MetadataFilter>,
@@ -66,11 +67,6 @@ pub struct ListOptions {
     pub include_vectors: bool,
 }
 
-impl Default for ListOptions {
-    fn default() -> Self {
-        Self { filter: None, include_vectors: false }
-    }
-}
 
 /// The core interface for all vector storage backends.
 #[async_trait]

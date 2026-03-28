@@ -14,12 +14,12 @@
 //! ```rust,no_run
 //! use fornix::cache::{CacheConfig, adapters::MemoryCacheAdapter, CacheAdapter};
 //!
-//! # tokio_test::block_on(async {
+//! # async fn _doc() {
 //! let adapter = MemoryCacheAdapter::connect(CacheConfig::default()).await.unwrap();
 //! adapter.set("my-key", b"my-value".to_vec(), None, None).await.unwrap();
 //! let value = adapter.get("my-key", None).await.unwrap();
 //! assert_eq!(value, Some(b"my-value".to_vec()));
-//! # });
+//! # }
 //! ```
 
 pub mod adapter;

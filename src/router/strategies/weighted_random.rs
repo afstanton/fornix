@@ -191,6 +191,6 @@ mod tests {
         }
         let a_count = counts.get("a").copied().unwrap_or(0);
         // Should be roughly 75% ± 15%
-        assert!(a_count >= 55 && a_count <= 95, "a_count={}", a_count);
+        assert!((55..=95).contains(&a_count), "a_count={}", a_count);
     }
 }

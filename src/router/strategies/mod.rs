@@ -30,8 +30,8 @@ pub mod rorf;
 pub mod round_robin;
 pub mod weighted_random;
 
-pub use embedding_threshold::EmbeddingThreshold;
-pub use regex::RegexStrategy;
+pub use embedding_threshold::{EmbeddingThreshold, EmbeddingThresholdConfig};
+pub use regex::{RegexRule, RegexStrategy};
 pub use rorf::RoRFStrategy;
 pub use round_robin::RoundRobin;
-pub use weighted_random::WeightedRandom;
+pub use weighted_random::{WeightedModel, WeightedRandom};

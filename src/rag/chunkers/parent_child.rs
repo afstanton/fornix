@@ -48,10 +48,11 @@ impl Chunker for ParentChild {
 
         let parents = TokenCount::new(self.parent_size, 0).chunk(text);
         let mut output: Vec<Chunk> = Vec::new();
-        let mut global_index = 0;
+        let mut global_index;
 
         for parent in parents {
-            let parent_index = global_index;
+            let parent_index = output.len();
+            global_index = output.len() + 1;
 
             let mut parent_chunk = Chunk::new(
                 &parent.content,
@@ -60,7 +61,6 @@ impl Chunker for ParentChild {
                 parent.end_offset,
             );
             parent_chunk.metadata.insert("chunk_type".to_string(), json!("parent"));
-            global_index += 1;
 
             let children = TokenCount::new(self.child_size, 0).chunk(&parent.content);
             let child_chunks: Vec<Chunk> = children

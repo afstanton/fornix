@@ -24,7 +24,7 @@
 //! use fornix::graph::{GraphAdapter, GraphConfig, adapters::MemoryGraphAdapter};
 //! use fornix::graph::adapter::{EntitySearchOptions, CausalOptions};
 //!
-//! # tokio_test::block_on(async {
+//! # async fn _doc() {
 //! let g = MemoryGraphAdapter::connect(GraphConfig::default()).await.unwrap();
 //!
 //! let rain  = g.create_entity("Heavy Rain", "Weather", None, None).await.unwrap();
@@ -33,7 +33,7 @@
 //!
 //! let paths = g.causal_descendants(rain.id, CausalOptions::default(), None).await.unwrap();
 //! assert_eq!(paths[0].edges[0].relation_type, "CAUSES");
-//! # });
+//! # }
 //! ```
 
 pub mod adapter;

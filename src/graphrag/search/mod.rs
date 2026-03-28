@@ -73,23 +73,21 @@ impl<G: GraphAdapter> LocalSearch<G> {
         }
         // 2. Type-agnostic search (limit 1)
         let opts = EntitySearchOptions::new().with_query(query).with_limit(1);
-        if let Ok(results) = self.graph.search_entities(opts, None).await {
-            if let Some(e) = results.into_iter().next() {
+        if let Ok(results) = self.graph.search_entities(opts, None).await
+            && let Some(e) = results.into_iter().next() {
                 return Ok(Some(e));
             }
-        }
         // 3. Token-level fallback — try individual meaningful tokens
         let tokens: Vec<&str> = query
             .split_whitespace()
             .filter(|t| t.len() >= 3)
             .collect();
         for token in &tokens {
-            let opts = EntitySearchOptions::new().with_query(token).with_limit(5);
-            if let Ok(results) = self.graph.search_entities(opts, None).await {
-                if let Some(e) = results.into_iter().next() {
+            let opts = EntitySearchOptions::new().with_query(*token).with_limit(5);
+            if let Ok(results) = self.graph.search_entities(opts, None).await
+                && let Some(e) = results.into_iter().next() {
                     return Ok(Some(e));
                 }
-            }
         }
         Ok(None)
     }

@@ -130,7 +130,7 @@ fn build_node(
     let n_b = n - n_a;
 
     // Pure leaf or stopping condition
-    let at_max_depth = params.max_depth.map_or(false, |d| depth >= d);
+    let at_max_depth = params.max_depth.is_some_and(|d| depth >= d);
     let too_small = n < params.min_samples_split;
     let pure = n_a == 0 || n_b == 0;
 

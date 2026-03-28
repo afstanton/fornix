@@ -27,6 +27,7 @@ impl AssertionState {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s {
             "retracted" => Self::Retracted,
@@ -81,16 +82,14 @@ pub struct ExternalRef {
 impl ExternalRef {
     /// Returns `true` if this reference is active at the given time.
     pub fn active_at(&self, at: SystemTime) -> bool {
-        if let Some(from) = self.valid_from {
-            if at < from {
+        if let Some(from) = self.valid_from
+            && at < from {
                 return false;
             }
-        }
-        if let Some(to) = self.valid_to {
-            if at >= to {
+        if let Some(to) = self.valid_to
+            && at >= to {
                 return false;
             }
-        }
         true
     }
 
@@ -170,16 +169,14 @@ impl Entity {
         if !self.assertion_state.is_active() {
             return false;
         }
-        if let Some(from) = self.valid_from {
-            if at < from {
+        if let Some(from) = self.valid_from
+            && at < from {
                 return false;
             }
-        }
-        if let Some(to) = self.valid_to {
-            if at >= to {
+        if let Some(to) = self.valid_to
+            && at >= to {
                 return false;
             }
-        }
         true
     }
 
@@ -247,16 +244,14 @@ impl Relation {
         if !self.assertion_state.is_active() {
             return false;
         }
-        if let Some(from) = self.valid_from {
-            if at < from {
+        if let Some(from) = self.valid_from
+            && at < from {
                 return false;
             }
-        }
-        if let Some(to) = self.valid_to {
-            if at >= to {
+        if let Some(to) = self.valid_to
+            && at >= to {
                 return false;
             }
-        }
         true
     }
 

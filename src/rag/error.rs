@@ -88,7 +88,7 @@ mod tests {
     #[test]
     fn result_ok() {
         let r: Result<i32> = Ok(1);
-        assert_eq!(r.unwrap(), 1);
+        assert!(matches!(r, Ok(1)));
     }
 
     #[test]

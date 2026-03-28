@@ -17,7 +17,7 @@
 //! use fornix::vector::{VectorAdapter, VectorConfig, adapters::MemoryVectorAdapter};
 //! use fornix::vector::adapter::SearchOptions;
 //!
-//! # tokio_test::block_on(async {
+//! # async fn _doc() {
 //! let adapter = MemoryVectorAdapter::connect(VectorConfig::with_dimension(2)).await.unwrap();
 //! adapter.upsert("doc-1", vec![1.0, 0.0], None, None).await.unwrap();
 //! let results = adapter
@@ -25,7 +25,7 @@
 //!     .await
 //!     .unwrap();
 //! assert_eq!(results[0].id, "doc-1");
-//! # });
+//! # }
 //! ```
 
 pub mod adapter;

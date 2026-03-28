@@ -3,7 +3,7 @@
 //! All LLM calls take a generic `llm: &dyn Fn(&str) -> String` closure
 //! so the LLM provider is fully decoupled from the optimisation logic.
 
-use crate::tuner::{error::{Error, Result}, types::{Evaluator, Sample}};
+use crate::tuner::{error::Result, types::{Evaluator, Sample}};
 
 /// Call the LLM to produce a model output for a given prompt + sample input.
 pub fn model_output(
@@ -58,11 +58,10 @@ pub fn generate_variants(
 ) -> Vec<String> {
     let mut variants = vec![base_prompt.to_string()];
     for _ in 0..count {
-        if let Ok(v) = generate_variant(base_prompt, llm) {
-            if !variants.contains(&v) {
+        if let Ok(v) = generate_variant(base_prompt, llm)
+            && !variants.contains(&v) {
                 variants.push(v);
             }
-        }
     }
     variants
 }

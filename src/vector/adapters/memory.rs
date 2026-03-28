@@ -12,13 +12,13 @@ use tokio::sync::RwLock;
 use crate::common::metadata::Metadata;
 use crate::common::namespace::Namespace;
 use crate::common::pagination::{Page, PageParams};
+use crate::store::config::AdapterConfig;
 use crate::store::health::{HealthReport, HealthStatus};
 use crate::vector::{
     adapter::{ListOptions, SearchOptions, VectorAdapter},
     analysis::cosine_similarity,
     config::VectorConfig,
     error::{Error, Result},
-    filter::MetadataFilter,
     result::{VectorRecord, VectorResult},
 };
 
@@ -164,11 +164,10 @@ impl VectorAdapter for MemoryVectorAdapter {
             .filter(|(_, entry)| filter.matches(&entry.metadata))
             .filter_map(|(id, entry)| {
                 let sim = cosine_similarity(query, &entry.vector).ok()?;
-                if let Some(min) = options.min_similarity {
-                    if sim < min {
+                if let Some(min) = options.min_similarity
+                    && sim < min {
                         return None;
                     }
-                }
                 Some(VectorResult::new(
                     id.clone(),
                     sim,

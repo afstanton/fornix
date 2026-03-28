@@ -43,8 +43,8 @@ mod tests {
 
     #[test]
     fn positive_score_is_preserved() {
-        let r = Bm25Result::new("id", 3.14, vec![], HashMap::new());
-        assert!((r.score - 3.14).abs() < 1e-5);
+        let r = Bm25Result::new("id", std::f32::consts::PI, vec![], HashMap::new());
+        assert!((r.score - std::f32::consts::PI).abs() < 1e-5);
     }
 
     #[test]
