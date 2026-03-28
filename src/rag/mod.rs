@@ -1,63 +1,44 @@
-//! Retrieval-Augmented Generation: chunking, retrieval strategies,
-//! reranking, output filtering, and evaluation.
+//! RAG (Retrieval-Augmented Generation) pipeline components.
+//!
+//! This module provides the text-processing and retrieval-quality infrastructure
+//! that sits between raw search results and the final context window presented
+//! to an LLM.
+//!
+//! # Components
+//!
+//! - **Chunkers** — split documents into retrievable pieces:
+//!   [`FixedLength`], [`TokenCount`], [`SentenceToken`], [`ParentChild`]
+//! - **Rerankers** — reorder retrieved contexts by relevance:
+//!   [`NullReranker`] (pass-through), with cross-encoder support planned
+//! - **Output filters** — post-process the context list:
+//!   [`MinScoreFilter`], [`DeduplicateFilter`], [`TruncateFilter`],
+//!   [`FilterPipeline`]
+//! - **Query gap tracker** — surfaces corpus gaps from missed queries
+//! - **Evaluation** — [`Evaluator`] with precision, recall, faithfulness,
+//!   and answer-relevance metrics
+//!
+//! # Quick start
+//!
+//! ```rust
+//! use fornix::rag::chunkers::{Chunker, TokenCount};
+//!
+//! let chunker = TokenCount::new(200, 20);
+//! let chunks = chunker.chunk("The quick brown fox jumps over the lazy dog.");
+//! assert!(!chunks.is_empty());
+//! ```
 
-/// A chunk of source content used as retrieval context.
-pub struct RagContext {
-    pub id: Option<String>,
-    pub content: String,
-    pub score: Option<f32>,
-    pub retrieval_score: Option<f32>,
-    pub source: Option<String>,
-}
+pub mod chunkers;
+pub mod error;
+pub mod evaluation;
+pub mod output_filter;
+pub mod query_gap_tracker;
+pub mod rerankers;
+pub mod tokenizer;
+pub mod types;
 
-/// The result of a RAG search pass.
-pub struct RagResult {
-    pub query: String,
-    pub contexts: Vec<RagContext>,
-}
-
-/// Interface for chunking source text into retrievable units.
-pub trait Chunker: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn chunk(&self, text: &str) -> Result<Vec<String>, Self::Error>;
-}
-
-/// Interface for retrieval strategies (vector-only, BM25-only, hybrid,
-/// graph, HyDE, parent-child, multi-query, dialectic).
-pub trait RagStrategy: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn search(&self, query: &str) -> Result<RagResult, Self::Error>;
-    fn search_contexts(&self, query: &str) -> Result<Vec<RagContext>, Self::Error>;
-}
-
-/// Interface for result reranking (null, cross-encoder).
-pub trait Reranker: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn rerank(
-        &self,
-        query: &str,
-        contexts: Vec<RagContext>,
-        top_k: Option<usize>,
-    ) -> Result<Vec<RagContext>, Self::Error>;
-}
-
-/// Interface for output filters applied after retrieval
-/// (PII redaction, entity denylist, citation grounding, hallucination review, etc.).
-pub trait OutputFilter: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn name(&self) -> &'static str;
-    fn filter(&self, result: RagResult, query: &str) -> Result<RagResult, Self::Error>;
-}
-
-/// Interface for RAG evaluation metrics
-/// (context precision, recall, faithfulness, answer relevance).
-pub trait EvaluationMetric: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn name(&self) -> &'static str;
-    fn score(&self, result: &RagResult, reference: &str) -> Result<f32, Self::Error>;
-}
+pub use chunkers::{Chunker, FixedLength, ParentChild, SentenceToken, TokenCount};
+pub use error::{Error, Result};
+pub use output_filter::{DeduplicateFilter, FilterPipeline, MinScoreFilter, OutputFilter, TruncateFilter};
+pub use query_gap_tracker::QueryGapTracker;
+pub use rerankers::{NullReranker, Reranker};
+pub use types::{Chunk, Context, FilteredResult, RagResult};
