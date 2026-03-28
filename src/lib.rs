@@ -8,6 +8,17 @@
 //! [dependencies]
 //! fornix = { version = "0.1", features = ["vector", "graph", "rag"] }
 //! ```
+//!
+//! The `common` module is always available regardless of feature flags.
+//! Import its prelude for convenient access to shared types:
+//!
+//! ```rust
+//! use fornix::common::prelude::*;
+//! ```
+
+/// Shared types, traits, and utilities used across all modules.
+/// Always compiled — not feature-gated.
+pub mod common;
 
 #[cfg(feature = "store")]
 pub mod store;
