@@ -1,6 +1,6 @@
 [package]
 name = "fornix"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2024"
 description = "Knowledge storage, retrieval, and graph infrastructure for cognitive systems"
 license = "MIT"
@@ -12,7 +12,7 @@ default = []
 # Enable all modules at once (useful for development/testing)
 full = [
     "store", "cache", "vector", "bm25", "hybrid",
-    "graph", "graphrag", "rag", "router", "diff", "tuner", "agent"
+    "ontology", "graph", "graphrag", "rag", "router", "diff", "tuner", "agent"
 ]
 
 # Individual modules — dependency graph mirrors the architectural layering
@@ -21,9 +21,10 @@ cache    = ["store"]
 vector   = ["store"]
 bm25     = ["store"]
 hybrid   = ["vector", "bm25"]
+ontology = ["store"]
 graph    = ["store"]
 rag      = ["hybrid"]
-graphrag = ["graph", "rag", "hybrid"]
+graphrag = ["graph", "rag", "hybrid", "ontology"]
 router   = ["cache"]
 diff     = []
 tuner    = ["rag"]
@@ -54,8 +55,11 @@ tracing = "0.1"
 # Graph algorithms — shortest path, connected components, DFS/BFS
 petgraph = "0.6"
 
-# Concurrent HashMap — used by memory graph/vector adapters
+# Concurrent HashMap — used by memory graph/vector adapters and MemoryOntologyRegistry
 dashmap = "6"
+
+# Reader-writer locks — used by MemoryOntologyRegistry for ordered insertion tracking
+parking_lot = "0.12"
 
 # UUID generation for stable record identifiers
 uuid = { version = "1", features = ["v4"] }
@@ -63,7 +67,7 @@ uuid = { version = "1", features = ["v4"] }
 # Text diffing — word-level LCS diff, used by the diff module
 similar = "2"
 
-# Regex engine — used by the router regex strategy
+# Regex engine — used by the router regex strategy and ontology property validation
 regex = "1"
 
 [dev-dependencies]

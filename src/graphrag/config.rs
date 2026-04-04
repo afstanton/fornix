@@ -1,5 +1,8 @@
 //! GraphRAG configuration.
 
+use std::sync::Arc;
+use crate::ontology::Definition;
+
 /// Which duplicate-handling strategy to use during ingestion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum OnDuplicate { #[default] Skip, Update, Merge }
@@ -44,8 +47,26 @@ impl Default for CoverageWeights {
 /// Full GraphRAG configuration.
 #[derive(Debug, Clone)]
 pub struct GraphRagConfig {
+    // ── Ontology ───────────────────────────────────────────────────────────
+    /// An optional ontology definition for constrained extraction.
+    ///
+    /// When `Some`, [`effective_entity_types`] and [`effective_relation_types`]
+    /// are derived from the ontology rather than the fallback lists below.
+    /// The [`crate::ontology::OntologyValidator`] and
+    /// [`crate::ontology::OntologyPrompt`] are used during extraction to
+    /// constrain type lists and build per-type guidance blocks.
+    ///
+    /// When `None`, the `entity_types` and `relation_types` flat lists are
+    /// used directly (existing behaviour, unchanged).
+    pub ontology: Option<Arc<Definition>>,
+
     // ── Extraction ─────────────────────────────────────────────────────────
+    /// Fallback entity type list used when `ontology` is `None`.
+    /// When `ontology` is `Some`, this list is ignored by
+    /// [`effective_entity_types`] but retained for callers that want to
+    /// override type scoping explicitly.
     pub entity_types:            Vec<String>,
+    /// Fallback relation type list used when `ontology` is `None`.
     pub relation_types:          Vec<String>,
     pub extraction_chunk_size:   usize,
     pub extraction_max_entities: usize,
@@ -53,19 +74,19 @@ pub struct GraphRagConfig {
     pub extraction_temperature:  f32,
 
     // ── Resolution ─────────────────────────────────────────────────────────
-    pub resolution_strategy:       ResolutionStrategy,
-    pub resolution_threshold:      f32,
+    pub resolution_strategy:        ResolutionStrategy,
+    pub resolution_threshold:       f32,
     pub resolution_candidate_limit: usize,
 
     // ── Community ──────────────────────────────────────────────────────────
-    pub min_community_size:     usize,
+    pub min_community_size:      usize,
     pub max_community_summaries: usize,
-    pub summary_concurrency:    usize,
+    pub summary_concurrency:     usize,
 
     // ── Search ─────────────────────────────────────────────────────────────
-    pub local_search_depth:     usize,
-    pub auto_global_min_terms:  usize,
-    pub auto_global_min_chars:  usize,
+    pub local_search_depth:    usize,
+    pub auto_global_min_terms: usize,
+    pub auto_global_min_chars: usize,
 
     // ── Causal ─────────────────────────────────────────────────────────────
     pub causal_extraction_enabled: bool,
@@ -86,19 +107,20 @@ pub struct GraphRagConfig {
     pub coverage_low_score_threshold:       f32,
 
     // ── Ingestion ──────────────────────────────────────────────────────────
-    pub batch_size:           usize,
-    pub default_on_duplicate: OnDuplicate,
+    pub batch_size:                usize,
+    pub default_on_duplicate:      OnDuplicate,
     pub default_on_content_change: OnContentChange,
 
     // ── Antifragility ──────────────────────────────────────────────────────
-    pub scout_enabled:             bool,
-    pub scout_orphan_min_mentions: usize,
+    pub scout_enabled:              bool,
+    pub scout_orphan_min_mentions:  usize,
     pub scout_confidence_threshold: f32,
 }
 
 impl Default for GraphRagConfig {
     fn default() -> Self {
         Self {
+            ontology: None,
             entity_types: crate::graphrag::schema::DEFAULT_ENTITY_TYPES
                 .iter().map(|s| s.to_string()).collect(),
             relation_types: crate::graphrag::schema::DEFAULT_RELATION_TYPES
@@ -138,9 +160,115 @@ impl Default for GraphRagConfig {
     }
 }
 
+impl GraphRagConfig {
+    /// The effective entity type list for extraction prompt construction.
+    ///
+    /// When an `ontology` is configured, returns every entity type name
+    /// defined in the ontology. When no ontology is configured, returns
+    /// the flat `entity_types` fallback list.
+    ///
+    /// Callers that want a scoped subset (e.g. only types relevant to a
+    /// particular text chunk) should use
+    /// [`crate::ontology::OntologyPrompt::scoped_entity_types`] instead.
+    pub fn effective_entity_types(&self) -> Vec<String> {
+        match &self.ontology {
+            Some(ont) => ont.entity_type_names().map(String::from).collect(),
+            None => self.entity_types.clone(),
+        }
+    }
+
+    /// The effective relation type list for extraction prompt construction.
+    ///
+    /// Mirrors [`effective_entity_types`] for relation types.
+    pub fn effective_relation_types(&self) -> Vec<String> {
+        match &self.ontology {
+            Some(ont) => ont.relation_type_names().map(String::from).collect(),
+            None => self.relation_types.clone(),
+        }
+    }
+
+    /// Returns `true` if an ontology is configured.
+    pub fn has_ontology(&self) -> bool {
+        self.ontology.is_some()
+    }
+
+    /// Normalise an extracted entity type name via the configured ontology.
+    ///
+    /// If an ontology is configured and the candidate matches a canonical
+    /// type name or alias, returns the canonical name. If the candidate is
+    /// not in the ontology, returns `None`. If no ontology is configured,
+    /// returns `None` (callers should use the fallback list).
+    pub fn normalize_entity_type(&self, candidate: &str) -> Option<&str> {
+        let ont = self.ontology.as_ref()?;
+        ont.resolve_alias(candidate).map(|t| t.name.as_str())
+    }
+
+    /// Returns `true` if `entity_type` is a known type in the configured
+    /// ontology (by canonical name or alias).
+    ///
+    /// Returns `false` when no ontology is configured, deferring to the
+    /// caller's fallback logic.
+    pub fn known_entity_type(&self, entity_type: &str) -> bool {
+        self.ontology
+            .as_ref()
+            .map(|ont| ont.resolve_alias(entity_type).is_some())
+            .unwrap_or(false)
+    }
+
+    /// Returns `true` if `relation_type` is a known type in the configured
+    /// ontology.
+    pub fn known_relation_type(&self, relation_type: &str) -> bool {
+        self.ontology
+            .as_ref()
+            .map(|ont| ont.relation_type(relation_type).is_some())
+            .unwrap_or(false)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ontology::types::{
+        Definition, EntityTypeDefinition, RelationTypeDefinition,
+    };
+
+    fn make_ontology() -> Arc<Definition> {
+        let mut def = Definition::new("regulatory");
+        def.version = Some("1.0.0".to_string());
+        def.entity_types = vec![
+            EntityTypeDefinition {
+                name: "Regulation".to_string(),
+                description: None,
+                extraction_strategy: None,
+                extraction_patterns: Vec::new(),
+                aliases: vec!["Provision".to_string()],
+                properties: Vec::new(),
+            },
+            EntityTypeDefinition {
+                name: "Agency".to_string(),
+                description: None,
+                extraction_strategy: None,
+                extraction_patterns: Vec::new(),
+                aliases: Vec::new(),
+                properties: Vec::new(),
+            },
+        ];
+        def.relation_types = vec![RelationTypeDefinition {
+            name: "ISSUED_BY".to_string(),
+            description: None,
+            source_types: vec!["Regulation".to_string()],
+            target_types: vec!["Agency".to_string()],
+            properties: Vec::new(),
+        }];
+        Arc::new(def)
+    }
+
+    // ── Default ──
+
+    #[test]
+    fn default_ontology_is_none() {
+        assert!(GraphRagConfig::default().ontology.is_none());
+    }
 
     #[test]
     fn default_entity_types_populated() {
@@ -163,5 +291,140 @@ mod tests {
     fn coverage_weights_sum_to_one() {
         let w = CoverageWeights::default();
         assert!((w.description + w.property + w.relation + w.source - 1.0).abs() < 1e-6);
+    }
+
+    // ── has_ontology ──
+
+    #[test]
+    fn has_ontology_false_when_none() {
+        assert!(!GraphRagConfig::default().has_ontology());
+    }
+
+    #[test]
+    fn has_ontology_true_when_set() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        assert!(c.has_ontology());
+    }
+
+    // ── effective_entity_types ──
+
+    #[test]
+    fn effective_entity_types_uses_fallback_without_ontology() {
+        let c = GraphRagConfig::default();
+        let types = c.effective_entity_types();
+        assert!(types.contains(&"Person".to_string()));
+        assert!(!types.is_empty());
+    }
+
+    #[test]
+    fn effective_entity_types_derives_from_ontology_when_set() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        let types = c.effective_entity_types();
+        assert!(types.contains(&"Regulation".to_string()));
+        assert!(types.contains(&"Agency".to_string()));
+        // Schema defaults like "Person" are NOT in the ontology
+        assert!(!types.contains(&"Person".to_string()));
+        assert_eq!(types.len(), 2);
+    }
+
+    // ── effective_relation_types ──
+
+    #[test]
+    fn effective_relation_types_uses_fallback_without_ontology() {
+        let c = GraphRagConfig::default();
+        let types = c.effective_relation_types();
+        assert!(types.contains(&"RELATED_TO".to_string()));
+    }
+
+    #[test]
+    fn effective_relation_types_derives_from_ontology_when_set() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        let types = c.effective_relation_types();
+        assert_eq!(types, vec!["ISSUED_BY".to_string()]);
+    }
+
+    // ── normalize_entity_type ──
+
+    #[test]
+    fn normalize_entity_type_no_ontology_returns_none() {
+        let c = GraphRagConfig::default();
+        assert!(c.normalize_entity_type("Regulation").is_none());
+    }
+
+    #[test]
+    fn normalize_entity_type_canonical_name() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        assert_eq!(c.normalize_entity_type("Regulation"), Some("Regulation"));
+    }
+
+    #[test]
+    fn normalize_entity_type_resolves_alias() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        assert_eq!(c.normalize_entity_type("Provision"), Some("Regulation"));
+    }
+
+    #[test]
+    fn normalize_entity_type_unknown_returns_none() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        assert!(c.normalize_entity_type("Unicorn").is_none());
+    }
+
+    // ── known_entity_type ──
+
+    #[test]
+    fn known_entity_type_no_ontology_returns_false() {
+        assert!(!GraphRagConfig::default().known_entity_type("Regulation"));
+    }
+
+    #[test]
+    fn known_entity_type_canonical() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        assert!(c.known_entity_type("Regulation"));
+        assert!(c.known_entity_type("Agency"));
+    }
+
+    #[test]
+    fn known_entity_type_via_alias() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        assert!(c.known_entity_type("Provision"));
+    }
+
+    #[test]
+    fn known_entity_type_unknown_returns_false() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        assert!(!c.known_entity_type("Unicorn"));
+    }
+
+    // ── known_relation_type ──
+
+    #[test]
+    fn known_relation_type_no_ontology_returns_false() {
+        assert!(!GraphRagConfig::default().known_relation_type("ISSUED_BY"));
+    }
+
+    #[test]
+    fn known_relation_type_known() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        assert!(c.known_relation_type("ISSUED_BY"));
+    }
+
+    #[test]
+    fn known_relation_type_unknown_returns_false() {
+        let c = GraphRagConfig { ontology: Some(make_ontology()), ..Default::default() };
+        assert!(!c.known_relation_type("INVENTED_BY"));
+    }
+
+    // ── Arc sharing / Clone ──
+
+    #[test]
+    fn config_clone_shares_ontology_arc() {
+        let ont = make_ontology();
+        let c = GraphRagConfig { ontology: Some(Arc::clone(&ont)), ..Default::default() };
+        let cloned = c.clone();
+        // Both configs share the same Arc allocation
+        assert!(Arc::ptr_eq(
+            c.ontology.as_ref().unwrap(),
+            cloned.ontology.as_ref().unwrap()
+        ));
     }
 }

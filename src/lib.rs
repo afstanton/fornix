@@ -35,6 +35,9 @@ pub mod bm25;
 #[cfg(feature = "hybrid")]
 pub mod hybrid;
 
+#[cfg(feature = "ontology")]
+pub mod ontology;
+
 #[cfg(feature = "graph")]
 pub mod graph;
 

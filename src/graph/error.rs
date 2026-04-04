@@ -33,6 +33,14 @@ pub enum Error {
     #[error("missing dependency: {0}")]
     MissingDependency(String),
 
+    /// A graph write was rejected because it violates the active ontology schema.
+    ///
+    /// Only raised when `GraphConfig::ontology_strict` is `true` (and the
+    /// `ontology` feature is enabled). In soft mode the violation is logged
+    /// as a warning and the write proceeds.
+    #[error("ontology violation: {0}")]
+    OntologyViolation(String),
+
     /// An error from an underlying driver.
     #[error("backend error: {0}")]
     Backend(String),
@@ -60,6 +68,9 @@ impl Error {
     }
     pub fn backend(msg: impl Into<String>) -> Self {
         Self::Backend(msg.into())
+    }
+    pub fn ontology_violation(msg: impl Into<String>) -> Self {
+        Self::OntologyViolation(msg.into())
     }
 }
 
@@ -97,6 +108,13 @@ mod tests {
     fn invalid_arg_message() {
         let e = Error::invalid_arg("depth must be >= 1");
         assert_eq!(e.to_string(), "invalid argument: depth must be >= 1");
+    }
+
+    #[test]
+    fn ontology_violation_message() {
+        let e = Error::ontology_violation("unknown entity type: Unicorn");
+        assert_eq!(e.to_string(), "ontology violation: unknown entity type: Unicorn");
+        assert!(matches!(e, Error::OntologyViolation(_)));
     }
 
     #[test]
